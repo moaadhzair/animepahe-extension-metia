@@ -14,7 +14,26 @@ app.use((req, res, next) => {
 // Helper function to get cookies
 async function get_ddg_cookies(url) {
   try {
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0'
+      },
+      maxRedirects: 5,
+      validateStatus: function (status) {
+        return status >= 200 && status < 500; // Accept all status codes less than 500
+      }
+    });
+    
     const cookies = response.headers['set-cookie'];
     return cookies ? cookies[0].split(';')[0] : '';
   } catch (error) {
@@ -42,14 +61,33 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
   try {
     const keyword = req.params.keyword;
     const jar = new CookieJar();
-    const client = wrapper(axios.create({ jar }));
+    const client = wrapper(axios.create({ 
+      jar,
+      maxRedirects: 5,
+      validateStatus: function (status) {
+        return status >= 200 && status < 500;
+      }
+    }));
     
     // Set headers
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Cache-Control': 'max-age=0'
     };
     
     const url = `https://animepahe.ru/api?m=search&q=${encodeURIComponent(keyword)}`;
+    
+    // First visit the main page to get initial cookies
+    await client.get('https://animepahe.ru', { headers });
     
     // Get and set cookies
     const cookie = await get_ddg_cookies(url);
