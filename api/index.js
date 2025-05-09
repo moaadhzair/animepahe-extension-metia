@@ -38,7 +38,7 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
     
     const response = await client.get(url, { headers });
     const searchResultsRaw = response.data;
-    console.log(searchResultsRaw);
+
     // Parse the results using regex
     const regex = /"id":(.+?),"title":"(.+?)","type":"(.+?)","episodes":(.+?),"status":"(.+?)","season":"(.+?)","year":(.+?),"score":(.+?),"poster":"(.+?)","session":"(.+?)"/g;
     const searchResults = [];
@@ -58,7 +58,7 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
         session: match[10]
       });
     }
-    
+    console.log(searchResults);
     res.json({
       status: 'success',
       keyword: keyword,
