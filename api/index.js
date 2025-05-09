@@ -9,12 +9,16 @@ app.use((req, res, next) => {
 });
 
 // API endpoint for anime list
-app.get('/api/anime-list', (req, res) => {
-  // For now, return an empty list
+app.get('/api/get-anime-list/:id', (req, res) => {
+  // Get the ID from the URL parameter
+  const animeId = req.params.id;
+  
+  // For now, return an empty list with the requested ID
   const animeList = [];
   
   res.json({
     status: 'success',
+    id: animeId,
     data: animeList
   });
 });
