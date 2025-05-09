@@ -1,7 +1,5 @@
 const express = require('express');
 const axios = require('axios');
-const { CookieJar } = require('tough-cookie');
-const { wrapper } = require('axios-cookiejar-support');
 const app = express();
 
 // Enable CORS for all routes
@@ -11,36 +9,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Helper function to get cookies
-async function get_ddg_cookies(url) {
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Cache-Control': 'max-age=0'
-      },
-      maxRedirects: 5,
-      validateStatus: function (status) {
-        return status >= 200 && status < 500; // Accept all status codes less than 500
-      }
-    });
-    
-    const cookies = response.headers['set-cookie'];
-    return cookies ? cookies[0].split(';')[0] : '';
-  } catch (error) {
-    console.error('Error getting cookies:', error);
-    return '';
-  }
-}
+// Create the client instance
+const client = axios.create();
 
 // API endpoint for anime list
 app.get('/api/get-episode-list/:id', (req, res) => {
@@ -60,42 +30,12 @@ app.get('/api/get-episode-list/:id', (req, res) => {
 app.get('/api/search-anime/:keyword', async (req, res) => {
   try {
     const keyword = req.params.keyword;
-    const jar = new CookieJar();
-    const client = wrapper(axios.create({ 
-      jar,
-      maxRedirects: 5,
-      validateStatus: function (status) {
-        return status >= 200 && status < 500;
-      }
-    }));
-    
-    // Set headers
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
-      'Cache-Control': 'max-age=0'
+      'Cookie': '__ddg2_='
     };
     
     const url = `https://animepahe.ru/api?m=search&q=${encodeURIComponent(keyword)}`;
     
-    // First visit the main page to get initial cookies
-    await client.get('https://animepahe.ru', { headers });
-    
-    // Get and set cookies
-    const cookie = await get_ddg_cookies(url);
-    if (cookie) {
-      jar.setCookieSync(cookie, url);
-    }
-    
-    // Make the request
     const response = await client.get(url, { headers });
     const searchResultsRaw = response.data;
     
@@ -125,7 +65,6 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
       data: searchResults
     });
   } catch (error) {
-    console.error('Search error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to search anime',
