@@ -65,7 +65,7 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
     }
     
     res.json({
-      status: 'success',
+      status: 'success???',
       keyword: keyword,
       data: searchResults
     });
