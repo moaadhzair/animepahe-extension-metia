@@ -13,23 +13,11 @@ app.use((req, res, next) => {
 const client = axios.create();
 
 // API endpoint for anime list
-app.get('/api/get-episode-list/:id', (req, res) => {
+app.get('/api/get-episode-list/:session', async (req, res) => {
   // Get the ID from the URL parameter
-  const animeId = req.params.id;
+  const session = req.params.session;
 
-  // For now, return an empty list with the requested ID
-  const episodeList = [];
-
-  res.json({
-    status: 'success',
-    id: animeId,
-    data: episodeList
-  });
-});
-
-app.get('/api/search-anime/:keyword', async (req, res) => {
   try {
-    const keyword = "naruto";
     const headers = {
       'Cookie': '__ddg2_=',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
@@ -38,15 +26,54 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
       'Accept-Encoding': 'gzip, deflate, br',
       'Connection': 'keep-alive'
     };
-  
+
+    const url = `https://animepahe.ru/api?m=release&id=${session}&sort=episode_asc`;
+
+    console.log('Making request to:', url);
+    const response = await axios.get(url, { headers });
+
+    res.json({
+      status: 'success',
+      session: session,
+      data: response.data.data
+    });
+    
+  } catch (error) {
+    console.error('Error details:', error.response ? {
+      status: error.response.status,
+      headers: error.response.headers,
+      data: error.response.data
+    } : error.message);
+  }
+
+
+  res.status(500).json({
+    status: 'error',
+    message: 'Failed to search anime',
+    error: error.message
+  });
+});
+
+app.get('/api/search-anime/:keyword', async (req, res) => {
+  try {
+    const keyword = req.params.keyword;
+    const headers = {
+      'Cookie': '__ddg2_=',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive'
+    };
+
     const url = `https://animepahe.ru/api?m=search&q=${encodeURIComponent(keyword)}`;
-  
+
     const response = await client.get(url, { headers });
     const searchResultsRaw = response.data;
-  
-  
+
+
     const searchResults = searchResultsRaw.data;
-  
+
     res.json({
       status: 'success',
       keyword: keyword,
@@ -58,18 +85,20 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
       headers: error.response.headers,
       data: error.response.data
     } : error.message);
-  
+
     res.status(500).json({
       status: 'error',
       message: 'Failed to search anime',
       error: error.message
     });
   }
-  
-  
-  
-  
+
+
+
+
 });
+
+
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
