@@ -16,10 +16,10 @@ const client = axios.create();
 app.get('/api/get-episode-list/:id', (req, res) => {
   // Get the ID from the URL parameter
   const animeId = req.params.id;
-  
+
   // For now, return an empty list with the requested ID
   const episodeList = [];
-  
+
   res.json({
     status: 'success',
     id: animeId,
@@ -31,14 +31,19 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
   try {
     const keyword = req.params.keyword;
     const headers = {
-      'Cookie': '__ddg2_='
+      'Cookie': '__ddg2_=',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive'
     };
     
     const url = `https://animepahe.ru/api?m=search&q=${encodeURIComponent(keyword)}`;
     
     const response = await client.get(url, { headers });
     const searchResultsRaw = response.data;
-
+    
     // Parse the results using regex
     const regex = /"id":(.+?),"title":"(.+?)","type":"(.+?)","episodes":(.+?),"status":"(.+?)","season":"(.+?)","year":(.+?),"score":(.+?),"poster":"(.+?)","session":"(.+?)"/g;
     const searchResults = [];
@@ -58,13 +63,19 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
         session: match[10]
       });
     }
-    console.log(searchResults);
+    
     res.json({
       status: 'success',
       keyword: keyword,
       data: searchResults
     });
   } catch (error) {
+    console.error('Search error:', error.response ? {
+      status: error.response.status,
+      headers: error.response.headers,
+      data: error.response.data
+    } : error.message);
+    
     res.status(500).json({
       status: 'error',
       message: 'Failed to search anime',
