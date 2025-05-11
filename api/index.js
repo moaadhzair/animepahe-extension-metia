@@ -74,7 +74,7 @@ app.get('/api/get-episode-list/:animeId', async (req, res) => {
 
     const url = `https://animepahe.ru/api?m=release&id=${animeId}&sort=episode_asc`;
     const response = await axios.get(url, { headers });
-    
+
     // Transform the data into the desired format
     const transformedEpisodes = response.data.data.map(episode => ({
       cover: episode.snapshot || null,
@@ -92,10 +92,10 @@ app.get('/api/get-episode-list/:animeId', async (req, res) => {
     });
   } catch (error) {
     console.error('Episode list error:', error);
-    res.status(500).json({ 
-      status: 'error', 
+    res.status(500).json({
+      status: 'error',
       message: error.message,
-      details: error.response?.data 
+      details: error.response?.data
     });
   }
 });
@@ -103,22 +103,24 @@ app.get('/api/get-episode-list/:animeId', async (req, res) => {
 
 
 app.get('/api/streamData/:episodeSession', async (req, res) => {
+  const sessionId = req.params.episodeSession;
+  const url = `https://animepahe.ru/play/${sessionId}`;
+
+  const headers = {
+    'Referer': 'https://animepahe.ru/',
+    'Cookie': '__ddg2_=',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+  };
+
   try {
-    const session = req.params.episodeSession;
-    const url = `https://animepahe.ru/play/${session}`;
-
-    const headers = {
-      'Referer': 'https://animepahe.ru/',
-      'Cookie': '__ddg2_=',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
-    };
-
+    // Fetch the HTML content of the page
     const response = await axios.get(url, { headers });
     const html = response.data;
     const $ = cheerio.load(html);
 
     const sources = [];
 
+    // Extract the providers, quality, and audio details
     $('#resolutionMenu button').each((i, el) => {
       const element = $(el);
       const provider = element.attr('data-fansub');
@@ -131,11 +133,11 @@ app.get('/api/streamData/:episodeSession', async (req, res) => {
         link,
         dub: audio === 'eng',
         sub: audio === 'jpn',
-        m3u8: null // to be filled
+        m3u8: null // m3u8 will be fetched later
       });
     });
 
-    // Fetch m3u8s in parallel
+    // Fetch m3u8 links directly in the same route
     const m3u8Fetches = await Promise.all(
       sources.map(async (source) => {
         try {
@@ -149,19 +151,33 @@ app.get('/api/streamData/:episodeSession', async (req, res) => {
       })
     );
 
-    res.json({
-      status: 'success',
-      session,
-      data: m3u8Fetches
-    });
+    // Return the final stream data as JSON
+    res.json(m3u8Fetches);
   } catch (error) {
-    console.error('Stream data error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: error.message
-    });
+    console.error('Error fetching stream data:', error.message);
+    res.status(500).send('Error fetching stream data');
   }
 });
+
+// Helper to extract m3u8 link from obfuscated eval
+function extractM3U8(html) {
+  const match = html.match(/;eval(.*?)<\/script>/s);
+  if (!match) return null;
+
+  try {
+    const wrapped = `var data = ${match[1]}; data;`;
+    const result = eval(wrapped);
+
+    // ⚠️ Only safe here because structure is predictable
+    const m3u8Match = result.match(/['"]([^'"]+\.m3u8)['"]/);
+    return m3u8Match ? m3u8Match[1] : null;
+  } catch (err) {
+    console.log(err);
+
+    return null;
+  }
+}
+
 
 // Helper to extract m3u8 link from obfuscated eval
 function extractM3U8(html) {
