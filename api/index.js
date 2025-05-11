@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
+const cheerio = require('cheerio');
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -13,7 +14,6 @@ app.use((req, res, next) => {
 const client = axios.create();
 
 // API endpoint for anime list
-
 app.get('/api/search-anime/:keyword', async (req, res) => {
   try {
     const keyword = req.params.keyword;
@@ -92,6 +92,56 @@ app.get('/api/get-episode-list/:animeId', async (req, res) => {
     });
   }
 });
+
+
+app.get('/api/streamData/:episode-session', async (req, res) => {
+
+});
+
+
+app.get('/api/streamData/:episodeSession', async (req, res) => {
+  try {
+    const sessionId = req.params.episodeSession;
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      'Accept': 'text/html',
+    };
+
+    const response = await axios.get(`https://animepahe.ru/play/${sessionId}`, { headers });
+
+    const $ = cheerio.load(response.data);
+
+    const results = [];
+
+    // Look inside the dropdown buttons
+    $('button.dropdown-item').each((_, el) => {
+      const link = $(el).attr('data-src');
+      const provider = $(el).attr('data-fansub');
+
+      if (link && provider) {
+        results.push({
+          provider: provider.trim(),
+          link: link.trim()
+        });
+      }
+    });
+
+    res.json({
+      status: 'success',
+      sessionId,
+      data: results
+    });
+
+  } catch (error) {
+    console.error('Stream data error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+      details: error.response?.data
+    });
+  }
+});
+
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
