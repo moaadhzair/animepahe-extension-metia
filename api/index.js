@@ -100,10 +100,6 @@ app.get('/api/get-episode-list/:animeId', async (req, res) => {
 });
 
 
-app.get('/api/streamData/:episode-session', async (req, res) => {
-
-});
-
 
 app.get('/api/streamData/:episodeSession', async (req, res) => {
   try {
@@ -111,24 +107,25 @@ app.get('/api/streamData/:episodeSession', async (req, res) => {
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
       'Accept': 'text/html',
-      'Cookie': '__ddg2_='
     };
 
     const response = await axios.get(`https://animepahe.ru/play/${sessionId}`, { headers });
 
     const $ = cheerio.load(response.data);
-
     const results = [];
 
-    // Look inside the dropdown buttons
     $('button.dropdown-item').each((_, el) => {
-      const link = $(el).attr('data-src');
-      const provider = $(el).attr('data-fansub');
+      const link = $(el).attr('data-src')?.trim();
+      const provider = $(el).attr('data-fansub')?.trim();
+      const quality = $(el).attr('data-resolution')?.trim();
+      const audio = $(el).attr('data-audio')?.trim();
 
-      if (link && provider) {
+      if (link && provider && quality) {
         results.push({
-          provider: provider.trim(),
-          link: link.trim()
+          provider: `${provider} ${quality}p`,
+          link,
+          dub: audio === 'eng',
+          sub: true
         });
       }
     });
