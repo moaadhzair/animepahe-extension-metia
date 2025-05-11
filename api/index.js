@@ -107,6 +107,7 @@ app.get('/api/streamData/:episodeSession', async (req, res) => {
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
       'Accept': 'text/html',
+      'Cookie': '__ddg2_='
     };
 
     const response = await axios.get(`https://animepahe.ru/play/${sessionId}`, { headers });
