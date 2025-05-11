@@ -141,7 +141,12 @@ app.get('/api/streamData/:episodeSession', async (req, res) => {
     const m3u8Fetches = await Promise.all(
       sources.map(async (source) => {
         try {
-          const page = await axios.get(source.link, { headers });
+          const page = await axios.get(source.link, { 
+            headers: {
+              'Referer': 'https://animepahe.ru/',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+            }
+           });
           const m3u8 = extractM3U8(page.data);
           return { ...source, m3u8 };
         } catch (err) {
