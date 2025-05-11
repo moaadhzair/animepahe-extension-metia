@@ -19,23 +19,20 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
     const keyword = req.params.keyword;
     const headers = {
       'Cookie': '__ddg2_=',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
       'Accept-Encoding': 'gzip, deflate, br',
       'Connection': 'keep-alive'
     };
 
-    const response = await axios.get(`https://animepahe.ru/api?m=search&q=${encodeURIComponent(keyword)}`, { headers });
-    
-    // Extract the data using regex
-    const match = response.data.match(/window\.__INITIAL_STATE__\s*=\s*({.*?});/s);
-    if (!match) {
-      return res.json({ status: 'error', message: 'No data found' });
-    }
+    const url = `https://animepahe.ru/api?m=search&q=${encodeURIComponent(keyword)}`;
 
-    const data = JSON.parse(match[1]);
-    const searchResults = data.search.data || [];
+    const response = await client.get(url, { headers });
+    const searchResultsRaw = response.data;
+
+
+    const searchResults = searchResultsRaw.data;
 
     res.json({
       status: 'success',
@@ -43,13 +40,22 @@ app.get('/api/search-anime/:keyword', async (req, res) => {
       data: searchResults
     });
   } catch (error) {
-    console.error('Search error:', error);
-    res.status(500).json({ 
-      status: 'error', 
-      message: error.message,
-      details: error.response?.data 
+    console.error('Search error:', error.response ? {
+      status: error.response.status,
+      headers: error.response.headers,
+      data: error.response.data
+    } : error.message);
+
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to search anime',
+      error: error.message
     });
   }
+
+
+
+
 });
 
 // Get episode list endpoint
