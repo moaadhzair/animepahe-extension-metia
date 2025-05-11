@@ -121,12 +121,12 @@ app.get('/api/streamData/:episodeSession', async (req, res) => {
       const quality = $(el).attr('data-resolution')?.trim();
       const audio = $(el).attr('data-audio')?.trim();
 
-      if (link && provider && quality) {
+      if (link && provider && quality && audio) {
         results.push({
           provider: `${provider} ${quality}p`,
           link,
           dub: audio === 'eng',
-          sub: true
+          sub: audio === 'jpn'
         });
       }
     });
@@ -146,6 +146,7 @@ app.get('/api/streamData/:episodeSession', async (req, res) => {
     });
   }
 });
+
 
 
 // Health check endpoint
