@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 const cheerio = require('cheerio');
+const vm = require('vm');
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -101,35 +102,62 @@ app.get('/api/get-episode-list/:animeId', async (req, res) => {
 
 
 
-app.get('/api/streamData/:episodeSession', async (req, res) => {
+
+app.get('/api/streamData/:sessionId', async (req, res) => {
   try {
-    const sessionId = req.params.episodeSession;
+    const sessionId = req.params.sessionId;
+    const url = `https://animepahe.ru/play/${sessionId}`;
+
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      'Accept': 'text/html',
+      'referer': 'https://animepahe.ru/',
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
       'Cookie': '__ddg2_='
     };
 
-    const response = await axios.get(`https://animepahe.ru/play/${sessionId}`, { headers });
+    const pageRes = await axios.get(url, { headers });
+    const $ = cheerio.load(pageRes.data);
 
-    const $ = cheerio.load(response.data);
     const results = [];
 
-    $('button.dropdown-item').each((_, el) => {
-      const link = $(el).attr('data-src')?.trim();
-      const provider = $(el).attr('data-fansub')?.trim();
-      const quality = $(el).attr('data-resolution')?.trim();
-      const audio = $(el).attr('data-audio')?.trim();
+    $('#resolutionMenu .dropdown-item').each((_, el) => {
+      const btn = $(el);
+      const provider = btn.attr('data-fansub');
+      const resolution = btn.attr('data-resolution');
+      const audio = btn.attr('data-audio');
+      const streamLink = btn.attr('data-src');
 
-      if (link && provider && quality && audio) {
-        results.push({
-          provider: `${provider} ${quality}p`,
-          link,
-          dub: audio === 'eng',
-          sub: audio === 'jpn'
-        });
-      }
+      results.push({
+        provider: `${provider} ${resolution}p`,
+        link: streamLink,
+        dub: audio === 'eng',
+        sub: audio === 'jpn',
+        m3u8: null  // will be filled below
+      });
     });
+
+    // Fetch m3u8 links for each provider link
+    for (const item of results) {
+      try {
+        const providerPage = await axios.get(item.link, { headers });
+        const evalMatches = providerPage.data.match(/eval\(function\(p,a,c,k,e,d\).*?\)/gs);
+
+        if (evalMatches && evalMatches.length >= 2) {
+          // Safely evaluate the second obfuscated eval block
+          const context = {};
+          vm.createContext(context); // create a sandboxed environment
+
+          const script = new vm.Script(evalMatches[1]);
+          script.runInContext(context);
+
+          const m3u8Match = providerPage.data.match(/source\s*=\s*['"]([^'"]+\.m3u8)['"]/);
+          if (m3u8Match) {
+            item.m3u8 = m3u8Match[1];
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to get m3u8 for ${item.link}: ${err.message}`);
+      }
+    }
 
     res.json({
       status: 'success',
@@ -137,12 +165,12 @@ app.get('/api/streamData/:episodeSession', async (req, res) => {
       data: results
     });
 
-  } catch (error) {
-    console.error('Stream data error:', error);
+  } catch (err) {
+    console.error('Stream data error:', err);
     res.status(500).json({
       status: 'error',
-      message: error.message,
-      details: error.response?.data
+      message: err.message,
+      details: err.response?.data
     });
   }
 });
