@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 const cheerio = require('cheerio');
-const vm = require('vm');
+const https = require('https');
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -102,78 +102,81 @@ app.get('/api/get-episode-list/:animeId', async (req, res) => {
 
 
 
-
-app.get('/api/streamData/:sessionId', async (req, res) => {
+app.get('/api/streamData/:episodeSession', async (req, res) => {
   try {
-    const sessionId = req.params.sessionId;
-    const url = `https://animepahe.ru/play/${sessionId}`;
+    const session = req.params.episodeSession;
+    const url = `https://animepahe.ru/play/${session}`;
 
     const headers = {
-      'referer': 'https://animepahe.ru/',
-      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-      'Cookie': '__ddg2_='
+      'Referer': 'https://animepahe.ru/',
+      'Cookie': '__ddg2_=',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
     };
 
-    const pageRes = await axios.get(url, { headers });
-    const $ = cheerio.load(pageRes.data);
+    const response = await axios.get(url, { headers });
+    const html = response.data;
+    const $ = cheerio.load(html);
 
-    const results = [];
+    const sources = [];
 
-    $('#resolutionMenu .dropdown-item').each((_, el) => {
-      const btn = $(el);
-      const provider = btn.attr('data-fansub');
-      const resolution = btn.attr('data-resolution');
-      const audio = btn.attr('data-audio');
-      const streamLink = btn.attr('data-src');
+    $('#resolutionMenu button').each((i, el) => {
+      const element = $(el);
+      const provider = element.attr('data-fansub');
+      const link = element.attr('data-src');
+      const quality = element.attr('data-resolution');
+      const audio = element.attr('data-audio');
 
-      results.push({
-        provider: `${provider} ${resolution}p`,
-        link: streamLink,
+      sources.push({
+        provider: `${provider} ${quality}p`,
+        link,
         dub: audio === 'eng',
         sub: audio === 'jpn',
-        m3u8: null  // will be filled below
+        m3u8: null // to be filled
       });
     });
 
-    // Fetch m3u8 links for each provider link
-    for (const item of results) {
-      try {
-        const providerPage = await axios.get(item.link, { headers });
-        const evalMatches = providerPage.data.match(/eval\(function\(p,a,c,k,e,d\).*?\)/gs);
-
-        if (evalMatches && evalMatches.length >= 2) {
-          // Safely evaluate the second obfuscated eval block
-          const context = {};
-          vm.createContext(context); // create a sandboxed environment
-
-          const script = new vm.Script(evalMatches[1]);
-          script.runInContext(context);
-
-          const m3u8Match = providerPage.data.match(/source\s*=\s*['"]([^'"]+\.m3u8)['"]/);
-          if (m3u8Match) {
-            item.m3u8 = m3u8Match[1];
-          }
+    // Fetch m3u8s in parallel
+    const m3u8Fetches = await Promise.all(
+      sources.map(async (source) => {
+        try {
+          const page = await axios.get(source.link, { headers });
+          const m3u8 = extractM3U8(page.data);
+          return { ...source, m3u8 };
+        } catch (err) {
+          console.error(`Failed to fetch m3u8 for ${source.provider}`, err.message);
+          return { ...source, m3u8: null };
         }
-      } catch (err) {
-        console.warn(`Failed to get m3u8 for ${item.link}: ${err.message}`);
-      }
-    }
+      })
+    );
 
     res.json({
       status: 'success',
-      sessionId,
-      data: results
+      session,
+      data: m3u8Fetches
     });
-
-  } catch (err) {
-    console.error('Stream data error:', err);
+  } catch (error) {
+    console.error('Stream data error:', error);
     res.status(500).json({
       status: 'error',
-      message: err.message,
-      details: err.response?.data
+      message: error.message
     });
   }
 });
+
+// Helper to extract m3u8 link from obfuscated eval
+function extractM3U8(html) {
+  const match = html.match(/eval\((.*?)\)<\/script>/s);
+  if (!match) return null;
+
+  try {
+    const wrapped = `var data = ${match[1]}; data;`;
+    const result = eval(wrapped); // ⚠️ Only safe here because structure is predictable
+    const m3u8Match = result.match(/['"]([^'"]+\.m3u8)['"]/);
+    return m3u8Match ? m3u8Match[1] : null;
+  } catch (err) {
+    return null;
+  }
+}
 
 
 
