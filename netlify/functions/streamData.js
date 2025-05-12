@@ -70,7 +70,10 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
-            body: JSON.stringify(m3u8Fetches),
+            body: {
+                status: 'success',
+                data: m3u8Fetches
+            },
         };
     } catch (err) {
         return {
