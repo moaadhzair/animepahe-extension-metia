@@ -19,7 +19,7 @@ exports.handler = async (event) => {
             cover: ep.snapshot || null,
             name: `Episode ${ep.episode}`,
             link: null,
-            id: ep.session,
+            id: animeId + 'dumb' + ep.session,
             dub: ep.audio === 'eng',
             sub: true
         }));

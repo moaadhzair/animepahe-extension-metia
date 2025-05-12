@@ -4,7 +4,7 @@ const { HttpsProxyAgent } = require('https-proxy-agent'); // ✅ Destructure it!
 
 exports.handler = async (event) => {
     const sessionId = event.path.split('/').pop();
-    const url = `https://animepahe.ru/play/${sessionId}`;
+    const url = `https://animepahe.ru/play/${sessionId.replace('dumb', '/')}`;
     const headers = {
         'Referer': 'https://animepahe.ru/',
         'Cookie': '__ddg2_=',
