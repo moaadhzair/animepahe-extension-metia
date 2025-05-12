@@ -2,6 +2,8 @@ const axios = require('axios');
 
 exports.handler = async (event) => {
   try {
+    console.log(event);
+    
     const keyword = event.path.split('/').pop();
 
     const headers = {
