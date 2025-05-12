@@ -1,5 +1,6 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { HttpsProxyAgent } = require('https-proxy-agent'); // ✅ Destructure it!
 
 exports.handler = async (event) => {
     const sessionId = event.path.split('/').pop();
@@ -29,12 +30,11 @@ exports.handler = async (event) => {
         const m3u8Fetches = await Promise.all(
             sources.map(async (source) => {
                 try {
+                    const proxyUrl = 'http://user-moaadhzair_Tl3H4-country-US:jHcUK=F5C6gLdp4@dc.oxylabs.io:8000';
+                    const agent = new HttpsProxyAgent(proxyUrl);
+
                     const page = await axios.get(source.link, {
-                        proxy: {
-                            host: 'dc.oxylabs.io',
-                            port: 8000,
-                            auth: {username: 'user-moaadhzair_Tl3H4-country-US', password: 'jHcUK=F5C6gLdp4'}
-                        },
+                        httpsAgent: agent,
                         headers: {
                             'Referer': 'https://animepahe.ru/',
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
