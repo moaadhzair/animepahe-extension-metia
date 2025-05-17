@@ -1,5 +1,19 @@
 const axios = require('axios');
 
+async function fetchAllEpisodes(animeId, page = 1, headers, accumulated = []) {
+    const url = `https://animepahe.ru/api?m=release&id=${animeId}&sort=episode_asc&page=${page}`;
+    const response = await axios.get(url, { headers });
+    const data = response.data;
+    const episodes = data.data || [];
+    const allEpisodes = accumulated.concat(episodes);
+    if (data.next_page_url) {
+        // There is a next page, recursively fetch it
+        return fetchAllEpisodes(animeId, page + 1, headers, allEpisodes);
+    } else {
+        // No more pages
+        return allEpisodes;
+    }
+}
 
 exports.handler = async (event) => {
     try {
@@ -13,9 +27,8 @@ exports.handler = async (event) => {
             'Connection': 'keep-alive'
         };
 
-        const url = `https://animepahe.ru/api?m=release&id=${animeId}&sort=episode_asc`;
-        const response = await axios.get(url, { headers });
-        const transformed = response.data.data.map(ep => ({
+        const allEpisodes = await fetchAllEpisodes(animeId, 1, headers);
+        const transformed = allEpisodes.map(ep => ({
             cover: ep.snapshot || null,
             name: `Episode ${ep.episode}`,
             link: null,
